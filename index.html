@@ -20,7 +20,7 @@
             flex-direction: column;
             overflow: hidden;
         }
-        
+
         .game-container {
             position: relative;
             width: 800px;
@@ -30,32 +30,32 @@
             border: 4px solid #333;
             overflow: hidden;
         }
-        
+
         .dirt {
             position: absolute;
             border-radius: 50%;
             background-color: #8B4513;
             cursor: pointer;
         }
-        
+
         .dirt.grease {
             background-color: rgba(100, 100, 100, 0.8);
         }
-        
+
         .dirt.dust {
             background-color: rgba(200, 180, 140, 0.8);
         }
-        
+
         .dirt.grime {
             background-color: rgba(50, 60, 40, 0.9);
         }
-        
+
         .tools {
             display: flex;
             margin-top: 20px;
             gap: 20px;
         }
-        
+
         .tool {
             padding: 10px 20px;
             background: #4b93d1;
@@ -67,24 +67,24 @@
             font-size: 12px;
             transition: all 0.3s;
         }
-        
+
         .tool:hover {
             background: #3a75a9;
             transform: scale(1.05);
         }
-        
+
         .tool.active {
             background: #2c5880;
             transform: scale(1.1);
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
         }
-        
+
         .score-container {
             margin-top: 20px;
             font-size: 16px;
             font-weight: bold;
         }
-        
+
         .progress-bar {
             width: 800px;
             height: 20px;
@@ -93,20 +93,20 @@
             margin-top: 10px;
             overflow: hidden;
         }
-        
+
         .progress {
             height: 100%;
             background: linear-gradient(to right, #4CAF50, #8BC34A);
             width: 0%;
             transition: width 0.5s;
         }
-        
+
         .particle {
             position: absolute;
             border-radius: 50%;
             pointer-events: none;
         }
-        
+
         .instructions {
             margin-top: 20px;
             text-align: center;
@@ -114,7 +114,7 @@
             line-height: 1.6;
             font-size: 12px;
         }
-        
+
         .celebration-text {
             position: absolute;
             top: 50%;
@@ -128,11 +128,54 @@
             text-align: center;
             transition: opacity 0.5s;
         }
+
+        .music-controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            z-index: 50;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.7);
+            padding: 5px;
+            border-radius: 5px;
+        }
+
+        .pet-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 100px;
+            height: 100px;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .pet-image {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .pet-image.active {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
     <h1>CleanMaster 2D</h1>
-    <div class="game-container" id="gameContainer"></div>
+    <div class="game-container" id="gameContainer">
+        <!-- Pet Container for Animation -->
+        <div class="pet-container" id="petContainer">
+            <!-- Pet images will be added here by JavaScript -->
+        </div>
+
+        <!-- Music Controls -->
+        <div class="music-controls" id="musicControls">
+            🔊
+        </div>
+    </div>
     <div class="tools">
         <button class="tool" id="waterTool">1. Water</button>
         <button class="tool" id="detergentTool">2. Detergent</button>
@@ -149,6 +192,11 @@
         <p>Dust (tan) - Water | Grease (gray) - Detergent + Water | Grime (dark green) - Detergent + Water + After Wash</p>
     </div>
 
+    <!-- Background Music -->
+    <audio id="backgroundMusic" loop>
+        <source src="music.mp3" type="audio/mpeg">
+    </audio>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Game elements
@@ -158,21 +206,81 @@
             const afterwashTool = document.getElementById('afterwashTool');
             const scoreElement = document.getElementById('score');
             const progressBar = document.getElementById('progressBar');
-            
+            const backgroundMusic = document.getElementById('backgroundMusic');
+            const musicControls = document.getElementById('musicControls');
+            const petContainer = document.getElementById('petContainer');
+
             // Game state
             let score = 0;
             let totalDirt = 0;
             let currentTool = 'water';
             let treatmentSteps = {};
-            
+            let isMusicPlaying = false;
+            let currentPetFrame = 0;
+            let petFrames = 4; // Number of animation frames
+
+            // Set music volume to 30%
+            backgroundMusic.volume = 0.3;
+
+            // Music toggle
+            musicControls.addEventListener('click', function() {
+                if (isMusicPlaying) {
+                    backgroundMusic.pause();
+                    musicControls.textContent = '🔈';
+                    isMusicPlaying = false;
+                } else {
+                    backgroundMusic.play();
+                    musicControls.textContent = '🔊';
+                    isMusicPlaying = true;
+                }
+            });
+
+            // Start music on first user interaction (to comply with browser autoplay policies)
+            document.addEventListener('click', function startAudio() {
+                backgroundMusic.play().then(() => {
+                    isMusicPlaying = true;
+                }).catch(e => {
+                    console.log("Audio autoplay prevented due to browser policy");
+                });
+                document.removeEventListener('click', startAudio);
+            }, { once: true });
+
+            // Create pet animation frames
+            function createPetAnimation() {
+                // Create 4 frames for the cat animation
+                for (let i = 0; i < petFrames; i++) {
+                    const frame = document.createElement('img');
+                    frame.src = `cat${i+1}.png`; // Assuming you have cat1.png, cat2.png, etc.
+                    frame.className = 'pet-image';
+                    frame.alt = 'Cute cat';
+
+                    if (i === 0) {
+                        frame.classList.add('active');
+                    }
+
+                    petContainer.appendChild(frame);
+                }
+            }
+
+            // Animate pet
+            function animatePet() {
+                const frames = document.querySelectorAll('.pet-image');
+                frames[currentPetFrame].classList.remove('active');
+
+                currentPetFrame = (currentPetFrame + 1) % petFrames;
+                frames[currentPetFrame].classList.add('active');
+
+                setTimeout(animatePet, 200); // Change frame every 200ms
+            }
+
             // Set active tool
             function setActiveTool(tool) {
                 waterTool.classList.remove('active');
                 detergentTool.classList.remove('active');
                 afterwashTool.classList.remove('active');
-                
+
                 currentTool = tool;
-                
+
                 if (tool === 'water') {
                     waterTool.classList.add('active');
                 } else if (tool === 'detergent') {
@@ -181,17 +289,17 @@
                     afterwashTool.classList.add('active');
                 }
             }
-            
+
             // Generate random dirt
             function generateDirt(count) {
                 const dirtTypes = ['dust', 'grease', 'grime'];
-                
+
                 for (let i = 0; i < count; i++) {
                     const size = Math.floor(Math.random() * 40) + 30;
                     const x = Math.floor(Math.random() * (gameContainer.offsetWidth - size));
                     const y = Math.floor(Math.random() * (gameContainer.offsetHeight - size));
                     const type = dirtTypes[Math.floor(Math.random() * dirtTypes.length)];
-                    
+
                     const dirt = document.createElement('div');
                     dirt.className = `dirt ${type}`;
                     dirt.style.width = `${size}px`;
@@ -200,25 +308,25 @@
                     dirt.style.top = `${y}px`;
                     dirt.dataset.type = type;
                     dirt.dataset.id = `dirt-${i}`;
-                    
+
                     gameContainer.appendChild(dirt);
-                    
+
                     // Initialize treatment steps for this dirt
                     treatmentSteps[`dirt-${i}`] = {
                         water: false,
                         detergent: false,
                         afterwash: false
                     };
-                    
+
                     // Add click event
                     dirt.addEventListener('click', function(e) {
                         handleDirtClick(e.target);
                     });
-                    
+
                     totalDirt++;
                 }
             }
-            
+
             // Create particles
             function createParticles(x, y, color, count) {
                 for (let i = 0; i < count; i++) {
@@ -229,36 +337,36 @@
                     particle.style.backgroundColor = color;
                     particle.style.left = `${x}px`;
                     particle.style.top = `${y}px`;
-                    
+
                     // Random velocity
                     const vx = (Math.random() - 0.5) * 10;
                     const vy = (Math.random() - 0.5) * 10;
-                    
+
                     gameContainer.appendChild(particle);
-                    
+
                     // Animate particle
                     let opacity = 1;
                     const animateParticle = () => {
                         const currentLeft = parseFloat(particle.style.left);
                         const currentTop = parseFloat(particle.style.top);
-                        
+
                         particle.style.left = `${currentLeft + vx}px`;
                         particle.style.top = `${currentTop + vy}px`;
-                        
+
                         opacity -= 0.05;
                         particle.style.opacity = opacity;
-                        
+
                         if (opacity > 0) {
                             requestAnimationFrame(animateParticle);
                         } else {
                             particle.remove();
                         }
                     };
-                    
+
                     requestAnimationFrame(animateParticle);
                 }
             }
-            
+
             // Create celebration effect
             function createCelebration() {
                 // Add celebration text
@@ -266,49 +374,49 @@
                 celebrationText.className = 'celebration-text';
                 celebrationText.textContent = 'CONGRATULATIONS!';
                 gameContainer.appendChild(celebrationText);
-                
+
                 // Fade in text
                 setTimeout(() => {
                     celebrationText.style.opacity = 1;
                 }, 100);
-                
+
                 // Create colorful particles all over the game area
                 const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#FF1493'];
-                
+
                 // Create multiple bursts of particles
                 for (let burst = 0; burst < 15; burst++) {
                     setTimeout(() => {
                         // Random position for this burst
                         const x = Math.random() * gameContainer.offsetWidth;
                         const y = Math.random() * gameContainer.offsetHeight;
-                        
+
                         // Random color for this burst
                         const color = colors[Math.floor(Math.random() * colors.length)];
-                        
+
                         // Create particles
                         createParticles(x, y, color, 15);
                     }, burst * 200);
                 }
-                
+
                 // Fade out celebration text after a few seconds
                 setTimeout(() => {
                     celebrationText.style.opacity = 0;
-                    
+
                     // Remove text element after fade out
                     setTimeout(() => {
                         celebrationText.remove();
                     }, 1000);
                 }, 4000);
             }
-            
+
             // Handle dirt cleaning
             function handleDirtClick(dirtElement) {
                 const dirtType = dirtElement.dataset.type;
                 const dirtId = dirtElement.dataset.id;
-                
+
                 const particleX = parseFloat(dirtElement.style.left) + parseFloat(dirtElement.style.width) / 2;
                 const particleY = parseFloat(dirtElement.style.top) + parseFloat(dirtElement.style.height) / 2;
-                
+
                 // Apply current tool
                 if (currentTool === 'water') {
                     treatmentSteps[dirtId].water = true;
@@ -320,10 +428,10 @@
                     treatmentSteps[dirtId].afterwash = true;
                     createParticles(particleX, particleY, '#9370DB', 20); // Purple particles
                 }
-                
+
                 // Check if dirt is clean based on treatment sequence
                 let isClean = false;
-                
+
                 if (dirtType === 'dust' && treatmentSteps[dirtId].water) {
                     isClean = true;
                 } else if (dirtType === 'grease' && treatmentSteps[dirtId].detergent && treatmentSteps[dirtId].water) {
@@ -331,32 +439,32 @@
                 } else if (dirtType === 'grime' && treatmentSteps[dirtId].detergent && treatmentSteps[dirtId].water && treatmentSteps[dirtId].afterwash) {
                     isClean = true;
                 }
-                
+
                 if (isClean && dirtElement.parentNode === gameContainer) {
                     // Create explosion effect
                     createParticles(particleX, particleY, '#FFFFFF', 30);
-                    
+
                     // Remove dirt
                     dirtElement.remove();
-                    
+
                     // Update score
                     updateScore();
                 }
             }
-            
+
             // Update score
             function updateScore() {
                 const cleanedDirt = totalDirt - document.querySelectorAll('.dirt').length;
                 score = Math.round((cleanedDirt / totalDirt) * 100);
-                
+
                 scoreElement.textContent = score;
                 progressBar.style.width = `${score}%`;
-                
+
                 if (score === 100) {
                     setTimeout(() => {
                         // Play celebration effect
                         createCelebration();
-                        
+
                         // Show alert after celebration
                         setTimeout(() => {
                             alert('Congratulations! You cleaned everything!');
@@ -364,23 +472,25 @@
                     }, 500);
                 }
             }
-            
+
             // Tool selection events
             waterTool.addEventListener('click', function() {
                 setActiveTool('water');
             });
-            
+
             detergentTool.addEventListener('click', function() {
                 setActiveTool('detergent');
             });
-            
+
             afterwashTool.addEventListener('click', function() {
                 setActiveTool('afterwash');
             });
-            
+
             // Initialize game
             setActiveTool('water');
             generateDirt(15);
+            createPetAnimation();
+            animatePet();
         });
     </script>
 </body>
